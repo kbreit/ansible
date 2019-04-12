@@ -45,12 +45,14 @@ version_added: "2.9"
 """
 
 import time
+import datetime
 from random import uniform
 from ansible.module_utils.connection import ConnectionError
 from ansible.plugins.httpapi import HttpApiBase
 
 BASE_HEADERS = {'Content-Type': 'application/json',
                 'X-Cisco-Meraki-API-Key': None}
+RATE_LIMIT_MAX_CONNECTIONS = 5
 RATE_LIMIT_CODE = 429
 URL_PREFIX = 'api.meraki.com/api/v0'
 
@@ -62,19 +64,33 @@ class HttpApi(HttpApiBase):
         self.path = None
         self.data = None
         self.retry_count = 0
+        self.rate_limit_tracker = []
+
+    def _rate_limit_monitor():
+        self.rate_limit_tracker.append(datetime.datetime.utcnow())  # Record current time for connection
+        delta = datetime.datetime.utcnow() - self.rate_limit_tracker[0]
+        while float(delta.total_seconds()) > 1.0:  # Delete first entry if older than a second
+            del self.rate_limit_tracker[0]
+            delta = datetime.datetime.utcnow() - self.rate_limit_tracker[0]
+        if len(self.rate_limit_tracker) == RATE_LIMIT_MAX_CONNECTIONS:
+            time.sleep(1 - (datetime.datetime.utcnow() - self.rate_limit_tracker[0]))
 
     def send_request(self, path, data, **message_kwargs):
+        self._rate_limit_monitor()
         try:
-            response, response_content = self.connection.send(path, data, method=method, headers=headers)
+            response, response_content = self.connection.send(path, data, method=method, headers=BASE_HEADERS)
         except HTTPError as exc:
             return exc.code(), exc.read()
 
-    def handle_httperror(self, exc):
-        if exc.code == RATE_LIMIT_CODE:
+    def _handle_httperror(self, exc):
+        if exc.code == RATE_LIMIT_CODE:  # Can't guarantee rate limiter won't be hit from other programs
+            time.sleep(time.uniform(0.5, 5.0))
             if self.retry_count == 10:
                 return False
-            time.sleep(uniform(0.5, 5.0))
-            self.send_request(self.path, self.data)
+            self.retry_count += 1
             return True
-        if exc.code == 404:
+        elif exc.code == 404:
             return False
+
+    def _handle_response(self, response_content):
+        return response_content
