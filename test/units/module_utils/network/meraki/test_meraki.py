@@ -36,7 +36,6 @@ testcase_data = {
                }
 }
 
-
 def load_fixture(name):
     path = os.path.join(fixture_path, name)
 
@@ -53,7 +52,6 @@ def load_fixture(name):
 
     fixture_data[path] = data
     return data
-
 
 @pytest.fixture(scope="module")
 def module():
@@ -73,9 +71,10 @@ def mocked_fetch_url():
                 }
     return (None, info)
 
-
-@mock.patch('ansible.module_utils.urls.fetch_url', side_effect=mocked_fetch_url)
 def test_fetch_url_404(module, mocker):
+    mocker.patch('ansible.module_utils.urls.fetch_url')
+    mocker.side_effect = mocked_fetch_url
+    
     url = 'https://api.meraki.com/404'
     data = module.request(url, method='GET')
     print(data)
