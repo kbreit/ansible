@@ -1,0 +1,92 @@
+# Test code for the Meraki Traffic Shaping module
+# Copyright: (c) 2019, Kevin Breit (@kbreit)
+
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+---
+- block:
+  - name: Test an API key is provided
+    fail:
+      msg: Please define an API key
+    when: auth_key is not defined
+    
+  - name: Create test appliance network
+    meraki_network:
+      auth_key: '{{auth_key}}'
+      state: present
+      org_name: '{{test_org_name}}'
+      net_name: 'TestNet - Appliance'
+      type: appliance
+    delegate_to: localhost
+
+  - name: Create test wireless network
+    meraki_network:
+      auth_key: '{{auth_key}}'
+      state: present
+      org_name: '{{test_org_name}}'
+      net_name: 'TestNet - Wireless'
+      type: wireless
+    delegate_to: localhost
+
+  - name: Query DSCP options
+    meraki_traffic_shaping:
+      auth_key: '{{auth_key}}'
+      state: query
+      subset: dscp
+      org_name: '{{test_org_name}}'
+      net_name: 'TestNet - Appliance'
+    delegate_to: localhost
+    register: get_dscp
+
+  - name: Query application categories
+    meraki_traffic_shaping:
+      auth_key: '{{auth_key}}'
+      state: query
+      subset: application_categories
+      org_name: '{{test_org_name}}'
+      net_name: 'TestNet - Appliance'
+    delegate_to: localhost
+    register: get_app_cat
+
+  - name: Query MX network
+    meraki_traffic_shaping:
+      auth_key: '{{auth_key}}'
+      state: query
+      subset: mx
+      org_name: '{{test_org_name}}'
+      net_name: 'TestNet - Appliance'
+    delegate_to: localhost
+    register: get_mx
+
+  - debug:
+      var: get_mx
+
+  - name: Query MR network
+    meraki_traffic_shaping:
+      auth_key: '{{auth_key}}'
+      state: query
+      subset: mr
+      org_name: '{{test_org_name}}'
+      net_name: 'TestNet - Wireless'
+      number: 0
+    delegate_to: localhost
+    register: get_mr
+
+  - debug:
+      var: get_mr
+        
+  - name: Delete test appliance network
+    meraki_network:
+      auth_key: '{{auth_key}}'
+      state: present
+      org_name: '{{test_org_name}}'
+      net_name: 'TestNet - Appliance'
+      type: appliance
+    delegate_to: localhost
+
+  - name: Delete test wireless network
+    meraki_network:
+      auth_key: '{{auth_key}}'
+      state: absent
+      org_name: '{{test_org_name}}'
+      net_name: 'TestNet - Wireless'
+    delegate_to: localhost
