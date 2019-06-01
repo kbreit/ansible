@@ -22,6 +22,7 @@ description:
 - Create, edit, query, or delete traffic shaping policies in the Meraki cloud.
 notes:
 - Some of the options are likely only used for developers within Meraki.
+- Networks allow for up to 8 rules.
 options:
     state:
       description:
@@ -81,15 +82,47 @@ from ansible.module_utils.basic import AnsibleModule, json, env_fallback
 from ansible.module_utils._text import to_native
 from ansible.module_utils.network.meraki.meraki import MerakiModule, meraki_argument_spec
 
+DEFINTION_TYPE_GENERIC = ('host', 'port', 'ip_range', 'local_net')
+DEFINTION_TYPE_APP = ('application', 'application_category')
 
 def main():
     # define the available arguments/parameters that a user can pass to
     # the module
 
-    fixed_ip_arg_spec = dict(mac=dict(type='str'),
-                             ip=dict(type='str'),
-                             name=dict(type='str'),
+    defintions_arg_spec = dict(application=dict(type='str', default=None),
+                                  application_category=dict(type='str', default=None),
+                                  host=dict(type='str', default=None),
+                                  port=dict(type='str', default=None),
+                                  ip_range=dict(type='str', default=None),
+                                  local_net=dict(type='str', default=None),
+                                  )
+
+    limits_arg_spec = dict(limit_up=dict(type='int'),
+                              limit_down=dict(type='int'),
+                              )
+
+    pcbw_arg_spec = dict(settings=dict(type='str', choices=['network default',
+                                                               'ignore',
+                                                               'custom']),
+                            bandwidth_limits=dict(type='dict', default=None, options=limits_arg_spec),
+                            )
+
+    mx_rules_arg_spec = dict(definitions=dict(type='list', default=None, elements=dict, options=defintions_arg_spec),
+                             per_client_bandwidth_limits=dict(type='dict', default=None, options=pcbw_arg_spec),
+                             dscp_tag=dict(type='str'),
+                             priority=dict(type='str', choices=['low', 'normal', 'high']),
                              )
+
+    mr_rules_arg_spec = dict(definitions=dict(type='list', default=None, elements=dict, options=defintions_arg_spec),
+                             per_client_bandwidth_limits=dict(type='dict', default=None, options=pcbw_arg_spec),
+                             dscp_tag=dict(type='str'),
+                             priority=dict(type='str', choices=['low', 'normal', 'high']),
+                             pcp_tag=dict(type='int'),
+                             )
+
+    mx_rule_arg_spec = dict(default_rules_enabled=dict(type='bool'),
+                            rules=dict(type='list', default=None, elements=dict, options=mx_rules_arg_spec),
+                            )
 
     reserved_ip_arg_spec = dict(start=dict(type='str'),
                                 end=dict(type='str'),
@@ -100,16 +133,11 @@ def main():
     argument_spec.update(state=dict(type='str', choices=['absent', 'present', 'query'], default='query'),
                          net_name=dict(type='str', aliases=['network']),
                          net_id=dict(type='str'),
-                         vlan_id=dict(type='int'),
-                         name=dict(type='str', aliases=['vlan_name']),
-                         subnet=dict(type='str'),
-                         appliance_ip=dict(type='str'),
-                         fixed_ip_assignments=dict(type='list', default=None, elements='dict', options=fixed_ip_arg_spec),
                          reserved_ip_range=dict(type='list', default=None, elements='dict', options=reserved_ip_arg_spec),
-                         vpn_nat_subnet=dict(type='str'),
-                         dns_nameservers=dict(type='str'),
                          subset=dict(type='str', choices=['dscp', 'application_categories', 'mx', 'mr']),
                          number=dict(type='int'),
+                         mx_rules=dict(type='dict', default=None, options=mx_rule_arg_spec),
+                         mr_rules=dict(type='dict', default=None, options=mr_rule_arg_spec),
                          )
 
     # seed the result dict in the object
@@ -135,18 +163,13 @@ def main():
     query_app_cat_urls = {'traffic_shaping': '/networks/{net_id}/trafficShaping/applicationCategories'}
     query_mx_urls = {'traffic_shaping': '/networks/{net_id}/trafficShaping'}
     query_mr_urls = {'traffic_shaping': '/networks/{net_id}/ssids/{ssid_number}/trafficShaping'}
-    query_urls = {'traffic_shaping': '/networks/{net_id}/vlans'}
-    query_url = {'traffic_shaping': '/networks/{net_id}/vlans/{vlan_id}'}
-    create_url = {'traffic_shaping': '/networks/{net_id}/vlans'}
-    update_url = {'traffic_shaping': '/networks/{net_id}/vlans/'}
-    delete_url = {'traffic_shaping': '/networks/{net_id}/vlans/'}
+    update_mx_urls = {'traffic_shaping': '/networks/{net_id}/trafficShaping'}
 
     meraki.url_catalog['get_app_cat'] = query_app_cat_urls
     meraki.url_catalog['get_dscp'] = query_dscp_urls
     meraki.url_catalog['get_mx'] = query_mx_urls
+    meraki.url_catalog['update_mx'] = update_mx_urls
     meraki.url_catalog['get_mr'] = query_mr_urls
-
-    payload = None
 
     org_id = meraki.params['org_id']
     if org_id is None:
@@ -155,6 +178,54 @@ def main():
     if net_id is None:
         nets = meraki.get_nets(org_id=org_id)
         net_id = meraki.get_net_id(net_name=meraki.params['net_name'], data=nets)
+
+    # Assemble payload data structure
+    # Yes it's ugly. The data structure isn't trivial
+    if meraki.params['state'] == 'present':
+        payload = dict()
+        if meraki.params['mx_rules']['default_rules_enabled'] is not None:
+            payload['defaultRulesEnabled'] = meraki.params['mx_rules']['default_rules_enabled']
+        rule_list = []
+        for rule in meraki.params['mx_rules']['rules']:
+            rule_dict = dict()
+            if rule['definitions']:
+                definitions = []
+                meraki.fail_json(msg=rule['definitions'])
+                for definition in rule['definitions']:
+                    if definition['host']:
+                        item = {'type': 'host',
+                                'value': definition['host']}
+                    elif definition['port']:
+                        item = {'type': 'port',
+                                'value': definition['port']}
+                    elif definition['ip_range']:
+                        item = {'type': 'ipRange',
+                                'value': definition['ip_range']}
+                    elif definition['local_net']:
+                        item = {'type': 'localNet',
+                                'value': definition['local_net']}
+                    elif definition['application']:
+                        item = {'type': 'application',
+                                'value': {'id': definition['application']}}
+                    elif definition['application_category']:
+                        item = {'type': 'applicationCategory',
+                                'value': {'id': definition['application_category']}}
+                    definitions.append(item)
+                rule_dict['definitions'] = definitions
+            if rule['per_client_bandwidth_limits'] is not None:
+                limit = {'settings': rule['per_client_bandwidth_limits']['settings']}
+                if rule['per_client_bandwidth_limits']['settings'] == 'custom':
+                    limit['bandwidthLimits'] = {'limitUp': rule['per_client_bandwidth_limits']['bandwidth_limits']['limit_up'],
+                                                'limitDown': rule['per_client_bandwidth_limits']['bandwidth_limits']['limit_down']}
+                rule_dict['perClientBandwidthLimits'] = limit
+            if rule['dscp_tag'] is not None:
+                rule_dict['dscpTagValue'] = rule['dscp_tag']
+            if rule['priority'] is not None:
+                rule_dict['priority'] = rule['priority']
+            rule_list.append(rule_dict)
+        payload['rules'] = rule_list
+
+    meraki.fail_json(msg="mx_rule_payload", payload=payload)
 
     if meraki.params['state'] == 'query':
         if meraki.params['subset'] == 'dscp':
@@ -168,6 +239,11 @@ def main():
         response = meraki.request(path, method='GET')
         if meraki.status == 200:
             meraki.result['data'] = response
+    elif meraki.params['state'] == 'present':
+        if meraki.params['mx_rules']:
+            path = meraki.construct_path('update_mx', net_id=net_id)
+            response = meraki.request(path, method='PUT')
+
     # in the event of a successful module execution, you will want to
     # simple AnsibleModule.exit_json(), passing the key/value results
     meraki.exit_json(**meraki.result)

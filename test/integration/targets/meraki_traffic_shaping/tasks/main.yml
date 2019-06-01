@@ -27,6 +27,33 @@
       type: wireless
     delegate_to: localhost
 
+  - name: Create MX rule
+    meraki_traffic_shaping:
+      auth_key: '{{auth_key}}'
+      state: present
+      org_name: '{{test_org_name}}'
+      net_name: 'TestNet - Appliance'
+      mx_rules:
+        default_rules_enabled: yes
+        rules:
+          - definitions:
+              - host: ansible.com
+              - port: 80
+              - ip_range: 1.1.1.1
+              - local_net: 192.1.0.0
+            per_client_bandwidth_limits:
+              settings: custom
+              bandwidth_limits: 
+                limit_up: 10
+                limit_down: 12
+            dscp_tag: 46
+            priority: normal
+    delegate_to: localhost
+    register: mx_rule
+
+  - debug:
+      var: mx_rule
+
   - name: Query DSCP options
     meraki_traffic_shaping:
       auth_key: '{{auth_key}}'
@@ -73,14 +100,23 @@
 
   - debug:
       var: get_mr
-        
+
+  - name: Query MX network
+    meraki_traffic_shaping:
+      auth_key: '{{auth_key}}'
+      state: present
+      subset: mr
+      org_name: '{{test_org_name}}'
+      net_name: 'TestNet - Appliance'
+    delegate_to: localhost
+    register: set_mx
+
   - name: Delete test appliance network
     meraki_network:
       auth_key: '{{auth_key}}'
-      state: present
+      state: absent
       org_name: '{{test_org_name}}'
       net_name: 'TestNet - Appliance'
-      type: appliance
     delegate_to: localhost
 
   - name: Delete test wireless network
