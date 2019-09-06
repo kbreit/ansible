@@ -4,48 +4,48 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 ---
 - block:
-  # - name: Test an API key is provided
-  #   fail:
-  #     msg: Please define an API key
-  #   when: auth_key is not defined
+  - name: Test an API key is provided
+    fail:
+      msg: Please define an API key
+    when: auth_key is not defined
 
-  # - name: Create a network
-  #   meraki_network:
-  #     auth_key: '{{auth_key}}'
-  #     state: present
-  #     org_name: '{{ test_org_name }}'
-  #     net_name: '{{ test_net_name }}'
-  #     type: appliance
-  #   delegate_to: localhost
+  - name: Create a network
+    meraki_network:
+      auth_key: '{{auth_key}}'
+      state: present
+      org_name: '{{ test_org_name }}'
+      net_name: '{{ test_net_name }}'
+      type: appliance
+    delegate_to: localhost
 
-  # - name: Query alerts
-  #   meraki_alerts:
-  #     auth_key: '{{auth_key}}'
-  #     state: query
-  #     org_name: '{{ test_org_name }}'
-  #     net_name: '{{ test_net_name }}'
-  #   delegate_to: localhost
-  #   register: query_all
+  - name: Query alerts
+    meraki_alerts:
+      auth_key: '{{auth_key}}'
+      state: query
+      org_name: '{{ test_org_name }}'
+      net_name: '{{ test_net_name }}'
+    delegate_to: localhost
+    register: query_all
 
-  # - debug:
-  #     var: query_all
+  - debug:
+      var: query_all
 
-  # - name: Set default alert
-  #   meraki_alerts:
-  #     auth_key: '{{auth_key}}'
-  #     state: present
-  #     org_name: '{{ test_org_name }}'
-  #     net_name: '{{ test_net_name }}'
-  #     default_destinations:
-  #       emails:
-  #         - test@ansiblemeraki.com
-  #       all_admins: yes
-  #       snmp: yes
-  #   delegate_to: localhost
-  #   register: set_default
+  - name: Set default alert
+    meraki_alerts:
+      auth_key: '{{auth_key}}'
+      state: present
+      org_name: '{{ test_org_name }}'
+      net_name: '{{ test_net_name }}'
+      default_destinations:
+        emails:
+          - test@ansiblemeraki.com
+        all_admins: yes
+        snmp: yes
+    delegate_to: localhost
+    register: set_default
 
-  # - debug:
-  #     var: set_default
+  - debug:
+      var: set_default
 
   - name: Set default alert idempotent
     meraki_alerts:
@@ -64,11 +64,11 @@
   - debug:
       var: set_default_idempotent
 
-  # always:
-  # - name: Delete network
-  #   meraki_network:
-  #     auth_key: '{{auth_key}}'
-  #     state: absent
-  #     org_name: '{{ test_org_name }}'
-  #     net_name: '{{ test_net_name }}'
-  #   delegate_to: localhost
+  always:
+  - name: Delete network
+    meraki_network:
+      auth_key: '{{auth_key}}'
+      state: absent
+      org_name: '{{ test_org_name }}'
+      net_name: '{{ test_net_name }}'
+    delegate_to: localhost

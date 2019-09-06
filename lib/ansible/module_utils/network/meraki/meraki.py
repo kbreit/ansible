@@ -231,9 +231,11 @@ class MerakiModule(object):
         if optional_ignore is not None:
             self.ignored_keys = self.ignored_keys + optional_ignore
 
-        if (type(original) != type(proposed)) or (is_instance(original, string_types) and is_instance(proposed, string_types)):
-            # self.fail_json(msg="Types don't match", original=str(type(original)), proposed=str(type(proposed)))
-            return True
+        if type(original) != type(proposed):
+            if any([isinstance(original, string_types) is True and isinstance(proposed, string_types) is not True,
+                    isinstance(original, string_types) is not True and isinstance(proposed, string_types) is True]):
+                # self.fail_json(msg="Types don't match", original=str(type(original)), proposed=str(type(proposed)))
+                return True
         if isinstance(original, list):
             if len(original) != len(proposed):
                 # self.fail_json(msg="Length of lists don't match")
@@ -253,7 +255,7 @@ class MerakiModule(object):
                         return True
         else:
             if original != proposed:
-                self.fail_json(msg="Fallback", original=original, proposed=proposed)
+                # self.fail_json(msg="Fallback", original=original, proposed=proposed)
                 return True
         return False
 
