@@ -134,10 +134,11 @@ data:
 '''
 
 import os
+from copy import deepcopy
 from ansible.module_utils.basic import AnsibleModule, json, env_fallback
 from ansible.module_utils.urls import fetch_url
 from ansible.module_utils._text import to_native
-from ansible.module_utils.common.dict_transformations import recursive_diff
+from ansible.module_utils.common.dict_transformations import recursive_diff, snake_dict_to_camel_dict
 from ansible.module_utils.network.meraki.meraki import MerakiModule, meraki_argument_spec
 
 
@@ -152,6 +153,18 @@ def construct_payload(meraki):
         payload['defaultDestinations']['emails'] = meraki.params['default_destinations']['emails']
         payload['defaultDestinations']['allAdmins'] = meraki.params['default_destinations']['all_admins']
         payload['defaultDestinations']['snmp'] = meraki.params['default_destinations']['snmp']
+    if meraki.params['alerts']:
+        payload['alerts'] = []
+        for alert in meraki.params['alerts']:
+            alert_data = {'type': alert['type'],
+                          'enabled':  alert['enabled'],
+            }
+            if 'filters' in alert:
+                alert_data['filters'] = alert['filters']
+            if 'alert_destinations' in alert:
+                alert_data['alertDestinations'] = snake_dict_to_camel_dict(alert['alert_destinations'])
+            payload['alerts'].append(alert_data)
+    # meraki.fail_json(msg=payload)
     return payload
 
 
@@ -160,12 +173,12 @@ def main():
     # define the available arguments/parameters that a user can pass to
     # the module
 
-    destinations_arg_spec = dict(emails=dict(type='list', element=str),
+    destinations_arg_spec = dict(emails=dict(type='list', element='str'),
                                  all_admins=dict(type='bool'),
                                  snmp=dict(type='bool'),
                                  )
 
-    alert_arg_spec = dict(type=dict(element=str),
+    alert_arg_spec = dict(type=dict(element='str'),
                           enabled=dict(type='bool'),
                           alert_destinations=dict(type='dict', options=destinations_arg_spec),
                           filters=dict(type='dict'),
@@ -175,7 +188,7 @@ def main():
     argument_spec.update(net_id=dict(type='str'),
                          net_name=dict(type='str', aliases=['name', 'network']),
                          default_destinations=dict(type='dict', options=destinations_arg_spec),
-                         alerts=dict(type='list', element=dict, options=alert_arg_spec),
+                         alerts=dict(type='list', element='dict', options=alert_arg_spec),
                          state=dict(type='str', choices=['present', 'query'], default='present'),
                          )
 
@@ -211,11 +224,20 @@ def main():
         path = meraki.construct_path('query', net_id=net_id)
         original = meraki.request(path, method='GET')
         payload = construct_payload(meraki)
-        # meraki.fail_json(msg="Compare", original=original, payload=payload)
         if meraki.is_update_required(original, payload) is True:
+            if meraki.check_mode is True:
+                original_copy = deepcopy(original)
+                original_copy.update(payload)
+                diff = recursive_diff(original, original_copy)
+                meraki.result['diff'] = {'before': diff[0],
+                                         'after': diff[1]}
+                original.update(payload)
+                meraki.result['data'] = original
+                meraki.result['changed'] = True
             response = meraki.request(path, method='PUT', payload=json.dumps(payload))
-            meraki.result['data'] = response
-            meraki.result['changed'] = True
+            if meraki.status == 200:
+                meraki.result['data'] = response
+                meraki.result['changed'] = True
         else:
             meraki.result['data'] = original
 

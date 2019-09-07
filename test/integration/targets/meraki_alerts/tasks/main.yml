@@ -30,6 +30,24 @@
   - debug:
       var: query_all
 
+  - name: Set default alert with check mode
+    meraki_alerts:
+      auth_key: '{{auth_key}}'
+      state: present
+      org_name: '{{ test_org_name }}'
+      net_name: '{{ test_net_name }}'
+      default_destinations:
+        emails:
+          - test@ansiblemeraki.com
+        all_admins: yes
+        snmp: yes
+    delegate_to: localhost
+    register: set_default_check
+    check_mode: yes
+
+  - debug:
+      var: set_default_check
+
   - name: Set default alert
     meraki_alerts:
       auth_key: '{{auth_key}}'
@@ -63,6 +81,26 @@
 
   - debug:
       var: set_default_idempotent
+
+  - name: Set alerts
+    meraki_alerts:
+      auth_key: '{{auth_key}}'
+      state: present
+      org_name: '{{ test_org_name }}'
+      net_name: '{{ test_net_name }}'
+      alerts:
+        - type: gatewayDown
+          enabled: yes
+          alert_destinations:
+            emails:
+              - test@ansiblemeraki.com
+            all_admins: no
+            snmp: no
+    delegate_to: localhost
+    register: set_alert
+
+  - debug:
+      var: set_alert
 
   always:
   - name: Delete network
