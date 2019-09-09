@@ -1,0 +1,138 @@
+# Test code for the Meraki Alerts module
+# Copyright: (c) 2019, Kevin Breit (@kbreit)
+
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+---
+- block:
+  - name: Test an API key is provided
+    fail:
+      msg: Please define an API key
+    when: auth_key is not defined
+
+  - name: Create a network
+    meraki_network:
+      auth_key: '{{auth_key}}'
+      state: present
+      org_name: '{{ test_org_name }}'
+      net_name: '{{ test_net_name }}'
+      type: appliance
+    register: new_net
+
+  - set_fact:
+      net_id: '{{new_net.data.id}}'
+
+  - name: Query alerts
+    meraki_alerts:
+      auth_key: '{{auth_key}}'
+      state: query
+      org_name: '{{ test_org_name }}'
+      net_name: '{{ test_net_name }}'
+    register: query_all
+
+  - assert:
+      that:
+        - query_all.data is defined
+
+  - name: Set default alert with check mode
+    meraki_alerts:
+      auth_key: '{{auth_key}}'
+      state: present
+      org_name: '{{ test_org_name }}'
+      net_name: '{{ test_net_name }}'
+      default_destinations:
+        emails:
+          - test@ansiblemeraki.com
+        all_admins: yes
+        snmp: yes
+    register: set_default_check
+    check_mode: yes
+
+  - assert:
+      that:
+        - set_default_check.data is defined
+        - set_default_check is changed
+
+  - name: Set default alert with net_id
+    meraki_alerts:
+      auth_key: '{{auth_key}}'
+      state: present
+      org_name: '{{ test_org_name }}'
+      net_id: '{{ net_id }}'
+      default_destinations:
+        emails:
+          - test@ansiblemeraki.com
+        all_admins: yes
+        snmp: yes
+    register: set_default
+
+  - assert:
+      that:
+        - set_default.data is defined
+        - set_default is changed
+
+  - name: Set default alert idempotent
+    meraki_alerts:
+      auth_key: '{{auth_key}}'
+      state: present
+      org_name: '{{ test_org_name }}'
+      net_name: '{{ test_net_name }}'
+      default_destinations:
+        emails:
+          - test@ansiblemeraki.com
+        all_admins: yes
+        snmp: yes
+    register: set_default_idempotent
+
+  - assert:
+      that:
+        - set_default_idempotent.data is defined
+        - set_default_idempotent is not changed
+
+  - name: Set alert without type
+    meraki_alerts:
+      auth_key: '{{auth_key}}'
+      state: present
+      org_name: '{{ test_org_name }}'
+      net_name: '{{ test_net_name }}'
+      alerts:
+        - enabled: yes
+          alert_destinations:
+            emails:
+              - test@ansiblemeraki.com
+            all_admins: no
+            snmp: no
+    register: set_alert_without_type
+    ignore_errors: yes
+
+  - assert:
+      that:
+        - set_alert_without_type.msg == 'Type must be specified.'
+
+  - name: Set alerts
+    meraki_alerts:
+      auth_key: '{{auth_key}}'
+      state: present
+      org_name: '{{ test_org_name }}'
+      net_name: '{{ test_net_name }}'
+      alerts:
+        - type: gatewayDown
+          enabled: yes
+          alert_destinations:
+            emails:
+              - test@ansiblemeraki.com
+            all_admins: no
+            snmp: no
+    register: set_alert
+
+  - assert:
+      that:
+        - set_alert.data is defined
+        - set_alert is changed
+
+  always:
+  - name: Delete network
+    meraki_network:
+      auth_key: '{{auth_key}}'
+      state: absent
+      org_name: '{{ test_org_name }}'
+      net_name: '{{ test_net_name }}'

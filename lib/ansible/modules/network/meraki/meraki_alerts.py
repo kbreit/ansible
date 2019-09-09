@@ -27,8 +27,7 @@ options:
         type: str
     state:
         description:
-        - Query or edit syslog servers
-        - To delete a syslog server, do not include server in list of servers
+        - Query or edit alert preferences
         choices: [present, query]
         default: present
         type: str
@@ -41,28 +40,54 @@ options:
         description:
         - ID number of a network.
         type: str
-    servers:
+    default_destinations:
         description:
-        - List of syslog server settings
+        - The network-wide destinations for all alerts on the network.
+        type: dict
         suboptions:
-            host:
+            emails:
                 description:
-                - IP address or hostname of Syslog server.
-            port:
+                - List of emails to send alerts to.
+                type: list
+            all_admins:
                 description:
-                - Port number Syslog server is listening on.
-                default: "514"
-            roles:
+                - Whether to alert all administrators.
+                type: bool
+            snmp:
                 description:
-                - List of applicable Syslog server roles.
-                choices: ['Wireless event log',
-                          'Appliance event log',
-                          'Switch event log',
-                          'Air Marshal events',
-                          'Flows',
-                          'URLs',
-                          'IDS alerts',
-                          'Security events']
+                - Whether to send SNMP trap to configured SNMP servers.
+                type: bool
+    alerts:
+    - List of alert specific preferences.
+    suboptions:
+(?#         type:
+            description:
+            - Which alert to configure.
+            type: str)
+        enabled:
+            description:
+            - Enabled state of rule.
+            type: bool
+        filters:
+            description:
+            - A dictionary of filters to apply to alerts which support it.
+            type: dict
+        alert_destinations:
+            description:
+            - A dictionary of destinations for the specific alert.
+            suboptions:
+                emails:
+                    description:
+                    - List of emails to send alerts to.
+                    type: list
+                all_admins:
+                    description:
+                    - Whether to alert all administrators.
+                    type: bool
+                snmp:
+                    description:
+                    - Whether to send SNMP trap to configured SNMP servers.
+                    type: bool
 
 author:
     - Kevin Breit (@kbreit)
@@ -148,17 +173,21 @@ def construct_payload(meraki):
     if meraki.params['default_destinations']:
         payload = {'defaultDestinations': {'emails': None,
                                            'allAdmins': None,
-                                           'snmp': None},
+                                           'snmp': None,
                                            }
+                   }
         payload['defaultDestinations']['emails'] = meraki.params['default_destinations']['emails']
         payload['defaultDestinations']['allAdmins'] = meraki.params['default_destinations']['all_admins']
         payload['defaultDestinations']['snmp'] = meraki.params['default_destinations']['snmp']
     if meraki.params['alerts']:
         payload['alerts'] = []
         for alert in meraki.params['alerts']:
+            if 'type' not in alert:
+                meraki.fail_json(msg="Type must be specified.")
             alert_data = {'type': alert['type'],
-                          'enabled':  alert['enabled'],
-            }
+                          }
+            if 'enabled' in alert:
+                alert_data['enalbed'] = alert['enabled']
             if 'filters' in alert:
                 alert_data['filters'] = alert['filters']
             if 'alert_destinations' in alert:
@@ -220,7 +249,6 @@ def main():
         response = meraki.request(path, method='GET')
         meraki.result['data'] = response
     elif meraki.params['state'] == 'present':
-        # meraki.fail_json(construct_payload(meraki))
         path = meraki.construct_path('query', net_id=net_id)
         original = meraki.request(path, method='GET')
         payload = construct_payload(meraki)
@@ -234,6 +262,7 @@ def main():
                 original.update(payload)
                 meraki.result['data'] = original
                 meraki.result['changed'] = True
+                meraki.exit_json(**meraki.result)
             response = meraki.request(path, method='PUT', payload=json.dumps(payload))
             if meraki.status == 200:
                 meraki.result['data'] = response
