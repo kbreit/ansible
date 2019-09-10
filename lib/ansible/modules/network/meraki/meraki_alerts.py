@@ -58,36 +58,39 @@ options:
                 - Whether to send SNMP trap to configured SNMP servers.
                 type: bool
     alerts:
-    - List of alert specific preferences.
-    suboptions:
-(?#         type:
-            description:
-            - Which alert to configure.
-            type: str)
-        enabled:
-            description:
-            - Enabled state of rule.
-            type: bool
-        filters:
-            description:
-            - A dictionary of filters to apply to alerts which support it.
-            type: dict
-        alert_destinations:
-            description:
-            - A dictionary of destinations for the specific alert.
-            suboptions:
-                emails:
-                    description:
-                    - List of emails to send alerts to.
-                    type: list
-                all_admins:
-                    description:
-                    - Whether to alert all administrators.
-                    type: bool
-                snmp:
-                    description:
-                    - Whether to send SNMP trap to configured SNMP servers.
-                    type: bool
+        description:
+        - List of alert specific preferences.
+        type: list
+        suboptions:
+            alert_type:
+                description:
+                - Which alert to configure.
+                type: str
+            enabled:
+                description:
+                - Enabled state of rule.
+                type: bool
+            filters:
+                description:
+                - A dictionary of filters to apply to alerts which support it.
+                type: dict
+            alert_destinations:
+                description:
+                - A dictionary of destinations for the specific alert.
+                type: dict
+                suboptions:
+                    emails:
+                        description:
+                        - List of emails to send alerts to.
+                        type: list
+                    all_admins:
+                        description:
+                        - Whether to alert all administrators.
+                        type: bool
+                    snmp:
+                        description:
+                        - Whether to send SNMP trap to configured SNMP servers.
+                        type: bool
 
 author:
     - Kevin Breit (@kbreit)
@@ -182,12 +185,12 @@ def construct_payload(meraki):
     if meraki.params['alerts']:
         payload['alerts'] = []
         for alert in meraki.params['alerts']:
-            if 'type' not in alert:
+            if 'alert_type' not in alert:
                 meraki.fail_json(msg="Type must be specified.")
-            alert_data = {'type': alert['type'],
+            alert_data = {'type': alert['alert_type'],
                           }
             if 'enabled' in alert:
-                alert_data['enalbed'] = alert['enabled']
+                alert_data['enabled'] = alert['enabled']
             if 'filters' in alert:
                 alert_data['filters'] = alert['filters']
             if 'alert_destinations' in alert:
@@ -207,7 +210,7 @@ def main():
                                  snmp=dict(type='bool'),
                                  )
 
-    alert_arg_spec = dict(type=dict(element='str'),
+    alert_arg_spec = dict(alert_type=dict(element='str'),
                           enabled=dict(type='bool'),
                           alert_destinations=dict(type='dict', options=destinations_arg_spec),
                           filters=dict(type='dict'),
