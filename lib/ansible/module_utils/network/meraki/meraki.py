@@ -427,7 +427,7 @@ class MerakiModule(object):
         try:
             return json.loads(to_native(resp.read()))
         except Exception:
-            pass
+            return json.loads({})
 
     def exit_json(self, **kwargs):
         """Custom written method to exit from module."""
