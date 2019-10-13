@@ -427,7 +427,8 @@ class MerakiModule(object):
         try:
             return json.loads(to_native(resp.read()))
         except Exception:
-            return json.loads({})
+            return dict()
+
 
     def exit_json(self, **kwargs):
         """Custom written method to exit from module."""
@@ -447,7 +448,7 @@ class MerakiModule(object):
                 try:
                     self.result['data'] = self.convert_camel_to_snake(self.result['data'])
                 except (KeyError, AttributeError):
-                    pass
+                    self.result['data'] = {}
         self.module.exit_json(**self.result)
 
     def fail_json(self, msg, **kwargs):

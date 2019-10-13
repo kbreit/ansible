@@ -81,6 +81,12 @@ def mocked_fetch_url(*args, **kwargs):
                 'url': 'https://api.meraki.com/api/v0/429',
                 }
         info['body'] = '429'
+    elif args[1] == 'https://api.meraki.com/api/v0/network':
+        info = {'status': 200,
+                'msg': None,
+                'url': 'https://api.meraki.com/api/v0/network',
+                }
+        print(info)
     return (None, info)
 
 
@@ -105,6 +111,14 @@ def mocked_fail_json(*args, **kwargs):
 
 def mocked_sleep(*args, **kwargs):
     pass
+
+
+def test_response_null(module, mocker):
+    url = '/network'
+    mocker.patch('ansible.module_utils.network.meraki.meraki.fetch_url', side_effect=mocked_fetch_url)
+    # mocker.patch('ansible.module_utils.network.meraki.meraki.MerakiModule.fail_json', side_effect=mocked_fail_json)
+    data = module.request(url, method='GET')
+    assert data == {}
 
 
 def test_fetch_url_404(module, mocker):
