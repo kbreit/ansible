@@ -1,0 +1,2 @@
+bugfixes:
+  - ´meraki - 400 level error requests provides error message on failure and not traceback.
