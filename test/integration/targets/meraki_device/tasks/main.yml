@@ -22,9 +22,6 @@
     delegate_to: localhost
     register: query_device_org
 
-  - debug:
-      msg: '{{query_device_org}}'
-
   - name: Claim a device into a network
     meraki_device:
       auth_key: '{{auth_key}}'
@@ -34,9 +31,6 @@
       state: present
     delegate_to: localhost
     register: claim_device
-
-  - debug:
-      msg: '{{claim_device}}'
 
   - assert:
       that:
@@ -51,9 +45,6 @@
     delegate_to: localhost
     register: query_one_net_id
 
-  - debug:
-      msg: '{{query_one_net_id}}'
-
   - name: Query all devices in one network
     meraki_device:
       auth_key: '{{auth_key}}'
@@ -62,9 +53,6 @@
       state: query
     delegate_to: localhost
     register: query_one_net
-
-  - debug:
-      msg: '{{query_one_net}}'
 
   - name: Query device by serial
     meraki_device:
@@ -75,9 +63,6 @@
     delegate_to: localhost
     register: query_serial_no_net
 
-  - debug:
-      msg: '{{query_serial_no_net}}'
-
   - name: Query device by serial
     meraki_device:
       auth_key: '{{auth_key}}'
@@ -87,9 +72,6 @@
       state: query
     delegate_to: localhost
     register: query_serial
-
-  - debug:
-      msg: '{{query_serial}}'
 
   - assert:
       that:
@@ -105,9 +87,6 @@
     delegate_to: localhost
     register: query_serial_uplink
 
-  - debug:
-      msg: '{{query_serial_uplink}}'
-
   - name: Query LLDP/CDP information about a device
     meraki_device:
       auth_key: '{{auth_key}}'
@@ -119,34 +98,21 @@
     delegate_to: localhost
     register: query_serial_lldp_cdp
 
-  - debug:
-      msg: '{{query_serial_lldp_cdp}}'
-
-  - name: Query a device by hostname
+  - name: Update a device for the next test
     meraki_device:
       auth_key: '{{auth_key}}'
       org_name: '{{test_org_name}}'
       net_name: '{{test_net_name}}'
-      hostname: test-hostname
-      state: query
+      serial: '{{serial}}'
+      name: test-hostname2
+      address: 1060 W. Addison St., Chicago, IL
+      lat: 0
+      lng: 0
+      tags: recently-added
+      state: present
+      note: Test device notes for changes
     delegate_to: localhost
-    register: query_hostname
-
-  - debug:
-      msg: '{{query_hostname}}'
-
-  - name: Query a device by model
-    meraki_device:
-      auth_key: '{{auth_key}}'
-      org_name: '{{test_org_name}}'
-      net_name: '{{test_net_name}}'
-      model: MR26
-      state: query
-    delegate_to: localhost
-    register: query_model
-
-  - debug:
-      msg: '{{query_model}}'
+    register: update_device
 
   - name: Update a device
     meraki_device:
@@ -154,7 +120,7 @@
       org_name: '{{test_org_name}}'
       net_name: '{{test_net_name}}'
       serial: '{{serial}}'
-      name: mr26
+      name: test-hostname
       address: 1060 W. Addison St., Chicago, IL
       lat: 41.948038
       lng: -87.65568
@@ -177,7 +143,7 @@
       org_name: '{{test_org_name}}'
       net_name: '{{test_net_name}}'
       serial: '{{serial}}'
-      name: mr26
+      name: test-hostname
       address: 1060 W. Addison St., Chicago, IL
       lat: 41.948038
       lng: -87.65568
@@ -188,13 +154,30 @@
     delegate_to: localhost
     register: update_device_idempotent
 
-  - debug:
-      msg: '{{update_device_idempotent}}'
-
   - assert:
       that:
         - update_device_idempotent.changed == False
         - update_device_idempotent.data is defined
+
+  - name: Query a device by hostname
+    meraki_device:
+      auth_key: '{{auth_key}}'
+      org_name: '{{test_org_name}}'
+      net_name: '{{test_net_name}}'
+      hostname: test-hostname
+      state: query
+    delegate_to: localhost
+    register: query_hostname
+
+  - name: Query a device by model
+    meraki_device:
+      auth_key: '{{auth_key}}'
+      org_name: '{{test_org_name}}'
+      net_name: '{{test_net_name}}'
+      model: MR26
+      state: query
+    delegate_to: localhost
+    register: query_model
 
   always:
   - name: Remove a device from a network
@@ -206,9 +189,6 @@
       state: absent
     delegate_to: localhost
     register: delete_device
-
-  - debug:
-      msg: '{{delete_device}}'
 
   - assert:
       that:
