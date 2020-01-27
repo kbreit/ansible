@@ -94,7 +94,7 @@
         - host: 192.0.1.4
           port: 514
           roles:
-            - Appliance Event log
+            - Appliance event log
             - Flows
         - host: 192.0.1.5
           port: 514
@@ -128,12 +128,12 @@
     register: invalid_role
     ignore_errors: yes
 
-  # - debug:
-  #     msg: '{{invalid_role.body.errors.0}}'
+  - debug:
+      var: invalid_role
 
   - assert:
       that:
-        - '"Please select at least one valid role" in invalid_role.body.errors.0'
+        - '"value of roles must be one or more of" in invalid_role.msg'
 
   - name: Add role to existing syslog server  # Adding doesn't work, just creation
     meraki_syslog:
@@ -145,7 +145,7 @@
         - host: 192.0.1.2
           port: 514
           roles:
-            - flows
+            - Flows
     delegate_to: localhost
     register: add_role
 

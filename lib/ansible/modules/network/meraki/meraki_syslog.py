@@ -61,7 +61,7 @@ options:
             roles:
                 description:
                 - List of applicable Syslog server roles.
-                choices: ['Wireless Event log',
+                choices: ['Wireless event log',
                           'Appliance event log',
                           'Switch event log',
                           'Air Marshal events',
@@ -152,7 +152,7 @@ def main():
 
     server_arg_spec = dict(host=dict(type='str'),
                            port=dict(type='int', default="514"),
-                           roles=dict(type='list', choices=['Wireless Event log',
+                           roles=dict(type='list', choices=['Wireless event log',
                                                             'Appliance event log',
                                                             'Switch event log',
                                                             'Air Marshal events',
